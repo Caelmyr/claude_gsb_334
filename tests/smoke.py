@@ -16,7 +16,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend import models, report, storage  # noqa: E402
+from backend import models, report, state_diff, storage  # noqa: E402
 from backend.engine import make_engine  # noqa: E402
 from backend.run_manager import manager  # noqa: E402
 
@@ -77,6 +77,53 @@ def storage_atomic_roundtrip() -> None:
             storage.DATA_DIR = old
 
 
+def state_diff_identity() -> None:
+    bounds = {"width": 100.0, "height": 100.0}
+    base_snap = {"bounds": bounds, "individuals": [
+        {"id": "a1", "type": "boid", "state": "boid", "x": 0.0, "y": 0.0},
+        {"id": "a2", "type": "boid", "state": "boid", "x": 90.0, "y": 0.0},
+    ]}
+    # Same run: a nearby/new id must not inherit the disappeared individual;
+    # a2 crossed the periodic x boundary by two cells.
+    target_snap = {"bounds": bounds, "individuals": [
+        {"id": "new", "type": "boid", "state": "boid", "x": 1.0, "y": 0.0},
+        {"id": "a2", "type": "boid", "state": "boid", "x": 92.0, "y": 0.0},
+    ]}
+    diff = state_diff.compare_snapshots(
+        base_snap, target_snap,
+        {"domain": "ecology", "model": "abm"},
+        {"domain": "ecology", "model": "abm"}, same_run=True,
+        verified_ids={"a2"})
+    assert diff["counts"]["added"] == 1
+    assert diff["counts"]["removed"] == 1
+    assert diff["counts"]["moved"] == 1
+    moved = [m for m in diff["matches"] if "moved" in m["kinds"]]
+    assert len(moved) == 1 and moved[0]["base_id"] == "a2"
+    assert moved[0]["dx"] == 2.0 and moved[0]["dy"] == 0.0
+
+    # Different runs: ids and counts may differ.  One-to-one spatial matching
+    # must resolve the local swap rather than assigning both base agents to the
+    # same target, and leave the far-away extra target as added.
+    cross_base = {"bounds": bounds, "individuals": [
+        {"id": "x1", "type": "boid", "state": "boid", "x": 0.0, "y": 0.0},
+        {"id": "x2", "type": "boid", "state": "boid", "x": 10.0, "y": 0.0},
+    ]}
+    cross_target = {"bounds": bounds, "individuals": [
+        {"id": "y1", "type": "boid", "state": "boid", "x": 1.0, "y": 0.0},
+        {"id": "y2", "type": "boid", "state": "boid", "x": 11.0, "y": 0.0},
+        {"id": "y3", "type": "boid", "state": "boid", "x": 80.0, "y": 80.0},
+    ]}
+    cross = state_diff.compare_snapshots(
+        cross_base, cross_target,
+        {"domain": "ecology", "model": "abm", "scene_id": "s1"},
+        {"domain": "ecology", "model": "abm", "scene_id": "s2"},
+        same_run=False)
+    pairs = {(m["base_id"], m["target_id"]) for m in cross["matches"]}
+    assert pairs == {("x1", "y1"), ("x2", "y2")}, pairs
+    assert cross["counts"]["added"] == 1
+    assert cross["counts"]["removed"] == 0
+
+
 def run_lifecycle() -> None:
     scene = models.Scene(domain="epidemic", model="abm",
                          config={"n": 200, "width": 300, "height": 300,
@@ -102,6 +149,7 @@ def main() -> None:
     check("six engines step and snapshot", engines_step)
     check("interventions apply", interventions_apply)
     check("atomic sharded storage", storage_atomic_roundtrip)
+    check("state-diff identity matching", state_diff_identity)
     check("run lifecycle + report", run_lifecycle)
     print("\nall smoke tests passed")
 

@@ -8,6 +8,7 @@ const PAGES = [
   { file: "stats.html", label: "统计图表" },
   { file: "intervention.html", label: "干预措施" },
   { file: "replay.html", label: "回放与时间轴" },
+  { file: "state_diff.html", label: "状态差异对比" },
   { file: "compare.html", label: "对比实验" },
   { file: "report.html", label: "报告生成" },
   { file: "export.html", label: "数据导出" },

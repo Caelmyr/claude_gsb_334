@@ -16,7 +16,7 @@ from __future__ import annotations
 import threading
 from typing import Any, Dict, List, Optional
 
-from . import models, storage, util
+from . import models, state_diff, storage, util
 from .engine import make_engine
 from .engine.base import Engine
 
@@ -217,6 +217,7 @@ class RunManager:
             meta["current_step"] = 0
             meta["status"] = "ready"
             meta["updated_at"] = util.now_iso()
+            storage.clear_steps(run_id)
             storage.save_step(run_id, 0, engine.snapshot())
             storage.save_series(run_id, [{"step": 0, **engine.stats()}])
             storage.save_events(run_id, [])
@@ -286,6 +287,95 @@ class RunManager:
 
     def get_individuals(self, run_id: str, step: Optional[int] = None) -> List[Dict[str, Any]]:
         return self.get_snapshot(run_id, step).get("individuals", [])
+
+    def get_state_diff(self,
+                       base_run_id: str,
+                       base_step: int,
+                       target_run_id: str,
+                       target_step: int,
+                       move_threshold: Optional[float] = None,
+                       match_radius: Optional[float] = None) -> Dict[str, Any]:
+        """Compare two snapshots, either within one run or across two runs."""
+        same_run = base_run_id == target_run_id
+        lock_ids = sorted({base_run_id, target_run_id})
+        if same_run:
+            locks = [self._lock_for(base_run_id)]
+        else:
+            locks = [self._lock_for(rid) for rid in lock_ids]
+        for lock in locks:
+            lock.acquire()
+        try:
+            base_meta = storage.load_run_meta(base_run_id)
+            if base_meta is None:
+                raise KeyError(f"run not found: {base_run_id}")
+            target_meta = (base_meta if same_run
+                           else storage.load_run_meta(target_run_id))
+            if target_meta is None:
+                raise KeyError(f"run not found: {target_run_id}")
+            base_snap = self.get_snapshot(base_run_id, int(base_step))
+            target_snap = self.get_snapshot(target_run_id, int(target_step))
+            verified = None
+            if same_run:
+                verified = self._verified_lineage_ids(
+                    base_run_id, int(base_step), int(target_step))
+            return state_diff.compare_snapshots(
+                base_snap, target_snap, base_meta, target_meta,
+                same_run=same_run, move_threshold=move_threshold,
+                match_radius=match_radius, verified_ids=verified)
+        finally:
+            for lock in reversed(locks):
+                lock.release()
+
+    def _verified_lineage_ids(self, run_id: str,
+                              base_step: int, target_step: int) -> set:
+        """Find shared ids that never recur/duplicate in persisted snapshots.
+
+        Ecology predator ids from older data could be reused after an
+        intervention.  Such an id can be unique at both endpoints but refer to
+        two different animals, so the complete persisted interval must be
+        checked before treating it as a lineage identifier.
+        """
+        lo, hi = sorted((int(base_step), int(target_step)))
+        candidates = set()
+        first = storage.load_step(run_id, lo)
+        last = storage.load_step(run_id, hi)
+        if first and last:
+            first_counts: Dict[Any, int] = {}
+            last_counts: Dict[Any, int] = {}
+            for individual in first.get("individuals", []):
+                raw_id = individual.get("id")
+                first_counts[raw_id] = first_counts.get(raw_id, 0) + 1
+            for individual in last.get("individuals", []):
+                raw_id = individual.get("id")
+                last_counts[raw_id] = last_counts.get(raw_id, 0) + 1
+            first_once = {raw_id for raw_id, count in first_counts.items()
+                          if count == 1}
+            last_once = {raw_id for raw_id, count in last_counts.items()
+                         if count == 1}
+            candidates = first_once & last_once
+        if not candidates:
+            return set()
+
+        verified = set(candidates)
+        for step in storage.list_steps(run_id):
+            if not lo <= step <= hi:
+                continue
+            snap = storage.load_step(run_id, step)
+            if snap is None:
+                continue
+            seen: Dict[Any, int] = {}
+            for individual in snap.get("individuals", []):
+                raw_id = individual.get("id")
+                if raw_id in candidates:
+                    seen[raw_id] = seen.get(raw_id, 0) + 1
+            for raw_id, count in seen.items():
+                # More than one occurrence at a step is a duplicated id; zero at
+                # an intermediate step means the lineage died before returning.
+                if count != 1:
+                    verified.discard(raw_id)
+            if step not in (lo, hi):
+                verified.intersection_update(seen)
+        return verified
 
 
 # Global singleton used by the Flask app.

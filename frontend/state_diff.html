@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>状态差异对比 · 复杂系统模拟仿真平台</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="topnav" id="topnav"></nav>
+  <main class="container">
+    <h1 class="page-title">状态差异对比</h1>
+    <p class="page-sub">对比同一运行的两个时间步，或两个不同运行的同一步：识别新增、消失、状态转变与位移个体。</p>
+
+    <div class="card">
+      <div class="row between" style="align-items:flex-end">
+        <div class="row gap-6">
+          <div>
+            <label class="muted small">基准运行 / 时间步</label>
+            <div class="row gap-6">
+              <select id="baseRun" style="width:340px"></select>
+              <select id="baseStep" style="width:120px"></select>
+            </div>
+          </div>
+          <span style="padding-bottom:8px">→</span>
+          <div>
+            <label class="muted small">对比运行 / 时间步</label>
+            <div class="row gap-6">
+              <select id="targetRun" style="width:340px"></select>
+              <select id="targetStep" style="width:120px"></select>
+            </div>
+          </div>
+        </div>
+        <div class="row gap-6">
+          <label class="check small"><input type="checkbox" id="sameRun" checked>同一运行</label>
+          <button class="btn small" id="refreshBtn">刷新</button>
+          <button class="btn primary small" id="compareBtn">计算差异</button>
+        </div>
+      </div>
+      <div class="row gap-6" style="margin-top:12px">
+        <label class="muted small">位移阈值 <input id="moveThreshold" type="number" value="0" min="0" step="0.1" style="width:100px"></label>
+        <label class="muted small">匹配半径（留空自动） <input id="matchRadius" type="number" min="0" step="0.1" style="width:130px" placeholder="自动"></label>
+        <label class="check small"><input type="checkbox" id="showUnchanged" checked>显示未变化</label>
+        <label class="check small"><input type="checkbox" id="showArrows" checked>显示位移箭头</label>
+        <span class="muted small" id="matchInfo"></span>
+      </div>
+      <p class="muted small" id="notice" style="margin-bottom:0"></p>
+    </div>
+
+    <div class="grid grid-4" id="countTiles"></div>
+
+
+    <div class="card">
+      <div class="row between">
+        <h2 style="margin:0">差异画布</h2>
+        <div class="legend" id="diffLegend"></div>
+      </div>
+      <div class="canvas-wrap" style="margin-top:12px"><canvas id="canvas"></canvas></div>
+      <p class="muted small" style="margin-bottom:0">绿色外框 = 新增，红色空心 = 消失，橙色 = 状态转变，蓝色箭头 = 位移，紫色 = 状态和位置均变化。</p>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h2>状态数量变化</h2>
+        <table id="stateDeltaTable"></table>
+      </div>
+      <div class="card">
+        <h2>位移统计</h2>
+        <table id="displacementTable"></table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row between">
+        <h2 style="margin:0">差异明细</h2>
+        <select id="kindFilter" style="width:170px">
+          <option value="">全部变化</option>
+          <option value="added">新增</option>
+          <option value="removed">消失</option>
+          <option value="state_changed">状态转变</option>
+          <option value="moved">仅位移</option>
+        </select>
+      </div>
+      <div style="overflow-x:auto;margin-top:10px">
+        <table id="diffTable"></table>
+      </div>
+      <div class="row between" style="margin-top:12px">
+        <span class="muted small" id="pageInfo"></span>
+        <div class="row gap-6">
+          <button class="btn small" id="prevBtn">上一页</button>
+          <button class="btn small" id="nextBtn">下一页</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/render.js"></script>
+  <script src="/js/state_diff.js"></script>
+</body>
+</html>

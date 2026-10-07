@@ -230,6 +230,35 @@ def create_app() -> Flask:
         except KeyError as exc:
             return _err(exc, 404)
 
+    @app.route("/api/state-diff")
+    def state_difference():
+        base_run = request.args.get("base_run", "")
+        target_run = request.args.get("target_run", base_run)
+        base_step = request.args.get("base_step", type=int)
+        target_step = request.args.get("target_step", type=int)
+        if base_step is None or target_step is None:
+            return _err(ValueError("必须提供 base_step 与 target_step"), 400)
+
+        def optional_float(name: str):
+            raw = request.args.get(name)
+            if raw in (None, ""):
+                return None
+            try:
+                return float(raw)
+            except ValueError:
+                raise ValueError(f"{name} 必须是数字") from None
+
+        try:
+            result = manager.get_state_diff(
+                base_run, base_step, target_run, target_step,
+                move_threshold=optional_float("move_threshold"),
+                match_radius=optional_float("match_radius"))
+        except KeyError as exc:
+            return _err(exc, 404)
+        except ValueError as exc:
+            return _err(exc, 400)
+        return jsonify(result)
+
     @app.route("/api/runs/<run_id>/interventions", methods=["POST"])
     def apply_intervention(run_id: str):
         try:

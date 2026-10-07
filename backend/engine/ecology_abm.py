@@ -43,12 +43,19 @@ class EcologyABM(Engine):
         self.perception = float(self.config["perception"])
         self.boids: List[Dict[str, Any]] = []
         self.predators: List[Dict[str, Any]] = []
+        self._predator_serial = 0
         for i in range(int(self.config["n_boids"])):
             self.boids.append(self._agent("boid", f"b{i:04d}"))
         for i in range(int(self.config["n_predators"])):
-            self.predators.append(self._agent("predator", f"p{i:04d}"))
+            serial = self._next_predator_serial()
+            self.predators.append(self._agent("predator", f"p{serial:04d}"))
         self._eaten = 0
         self._last_mean_neighbors = 0.0
+
+    def _next_predator_serial(self) -> int:
+        serial = self._predator_serial
+        self._predator_serial += 1
+        return serial
 
     def _agent(self, typ: str, aid: str) -> Dict[str, Any]:
         ang = self.rng.uniform(0, 2 * math.pi)
@@ -217,7 +224,9 @@ class EcologyABM(Engine):
         if t == "release_predators":
             count = int(p.get("count", 5))
             for _ in range(count):
-                self.predators.append(self._agent("predator", f"p{len(self.predators):04d}"))
+                serial = self._next_predator_serial()
+                self.predators.append(self._agent(
+                    "predator", f"p{serial:04d}"))
             return {"applied": True, "reason": f"投放了 {count} 只捕食者"}
         if t == "cull_foxes":
             k = self._cull_predators(float(p.get("fraction", 0.5)))
