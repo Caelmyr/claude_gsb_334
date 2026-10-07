@@ -230,6 +230,31 @@ def create_app() -> Flask:
         except KeyError as exc:
             return _err(exc, 404)
 
+    @app.route("/api/diff", methods=["POST"])
+    def state_diff():
+        """Individual-level diff of two snapshots (two steps / two runs)."""
+        data = _json()
+        a_run = data.get("a_run")
+        b_run = data.get("b_run", a_run)
+        if not a_run:
+            return _err(ValueError("缺少 a_run 运行 id"), 400)
+        try:
+            result = manager.get_diff(
+                a_run,
+                data.get("a_step") if data.get("a_step") is not None else None,
+                b_run,
+                data.get("b_step") if data.get("b_step") is not None else None,
+                method=str(data.get("method", "auto")),
+                move_threshold=(float(data["move_threshold"])
+                                if data.get("move_threshold") is not None else None),
+                match_radius=(float(data["match_radius"])
+                              if data.get("match_radius") is not None else None))
+        except KeyError as exc:
+            return _err(exc, 404)
+        except ValueError as exc:
+            return _err(exc, 400)
+        return jsonify(result)
+
     @app.route("/api/runs/<run_id>/interventions", methods=["POST"])
     def apply_intervention(run_id: str):
         try:

@@ -47,6 +47,9 @@ class EcologyABM(Engine):
             self.boids.append(self._agent("boid", f"b{i:04d}"))
         for i in range(int(self.config["n_predators"])):
             self.predators.append(self._agent("predator", f"p{i:04d}"))
+        # Monotonic counters so ids are never reused after a cull/release cycle.
+        self._boid_seq = int(self.config["n_boids"])
+        self._pred_seq = int(self.config["n_predators"])
         self._eaten = 0
         self._last_mean_neighbors = 0.0
 
@@ -217,7 +220,9 @@ class EcologyABM(Engine):
         if t == "release_predators":
             count = int(p.get("count", 5))
             for _ in range(count):
-                self.predators.append(self._agent("predator", f"p{len(self.predators):04d}"))
+                aid = f"p{self._pred_seq:04d}"
+                self._pred_seq += 1
+                self.predators.append(self._agent("predator", aid))
             return {"applied": True, "reason": f"投放了 {count} 只捕食者"}
         if t == "cull_foxes":
             k = self._cull_predators(float(p.get("fraction", 0.5)))

@@ -110,6 +110,10 @@ class TrafficABM(Engine):
     def bounds(self) -> Dict[str, float]:
         return {"width": float(self.config["road_length"]), "height": 60.0}
 
+    def wrap(self) -> Dict[str, bool]:
+        # Ring road: position along the road wraps; there is no lateral axis.
+        return {"x": True, "y": False}
+
     def palette(self) -> Dict[str, Dict[str, str]]:
         return {
             "moving": {"label": "行驶", "color": "#2ecc71"},

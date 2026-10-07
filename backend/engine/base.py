@@ -79,6 +79,14 @@ class Engine(ABC):
         """
         return None
 
+    def wrap(self) -> Dict[str, bool]:
+        """Which world axes wrap around (torus) when measuring displacement.
+
+        Epidemic / ecology worlds are toroidal on both axes; traffic engines
+        override this because their ring road wraps only along x (lanes do not).
+        """
+        return {"x": True, "y": True}
+
     def apply_intervention(self, itv: Dict[str, Any]) -> Dict[str, Any]:
         """Apply an intervention; subclasses override for the types they know.
 
@@ -94,6 +102,7 @@ class Engine(ABC):
         return {
             "step": self.step_count,
             "bounds": self.bounds(),
+            "wrap": self.wrap(),
             "palette": self.palette(),
             "stats": self.stats(),
             "substrate": self.substrate(),

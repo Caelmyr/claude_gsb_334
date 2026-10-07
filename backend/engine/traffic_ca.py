@@ -146,6 +146,10 @@ class TrafficCA(Engine):
     def bounds(self) -> Dict[str, float]:
         return {"width": float(self.length), "height": float(self.lanes)}
 
+    def wrap(self) -> Dict[str, bool]:
+        # Ring highway: cells wrap along the road, never across lanes.
+        return {"x": True, "y": False}
+
     def palette(self) -> Dict[str, Dict[str, str]]:
         return {
             "moving": {"label": "行驶", "color": "#2ecc71"},

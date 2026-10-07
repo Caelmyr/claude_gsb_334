@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>状态差异对比 · 复杂系统模拟仿真平台</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="topnav" id="topnav"></nav>
+  <main class="container">
+    <h1 class="page-title">状态差异对比</h1>
+    <p class="page-sub">选择同一运行的两个时间步（或两个运行的同一步），定位个体层面的变化从哪来：新增、消失、状态转变与位移。</p>
+
+    <div class="card">
+      <div class="row gap-6" style="margin-bottom:14px">
+        <label class="check"><input type="radio" name="mode" value="same" checked> 同一运行 · 两个时间步</label>
+        <label class="check"><input type="radio" name="mode" value="cross"> 两个不同运行</label>
+        <button class="btn small" id="refreshBtn">刷新运行列表</button>
+      </div>
+
+      <div class="grid grid-2">
+        <div>
+          <h3>A · 变化前（基准）</h3>
+          <div class="field"><label>运行</label><select id="runA" style="max-width:100%"></select></div>
+          <div class="row gap-6">
+            <div class="field" style="flex:1"><label>时间步</label>
+              <select id="stepA" style="width:100%"></select>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h3>B · 变化后（对比）</h3>
+          <div class="field" id="runBWrap" style="display:none"><label>运行（默认与 A 相同）</label><select id="runB" style="max-width:100%"></select></div>
+          <div class="field"><label>时间步</label><select id="stepB" style="width:100%"></select></div>
+        </div>
+      </div>
+
+      <div class="row gap-6" style="margin-top:6px">
+        <div class="field" style="margin:0">
+          <label>位移阈值（世界单位 / 格，超过才算位移）</label>
+          <input id="moveThreshold" type="number" value="1" min="0" step="0.5" style="width:120px">
+        </div>
+        <div class="field" style="margin:0" id="radiusWrap">
+          <label>跨运行匹配半径（留空 = 自适应）</label>
+          <input id="matchRadius" type="number" min="0" step="0.5" placeholder="自适应" style="width:160px">
+        </div>
+        <button class="btn primary" id="compareBtn" style="margin-top:18px">开始对比</button>
+      </div>
+      <p class="muted small" id="matchHint" style="margin:10px 0 0"></p>
+    </div>
+
+    <div id="resultArea" style="display:none">
+      <div class="card">
+        <div class="row between">
+          <h2 style="margin:0">差异总览 <span class="muted small" id="cmpTitle"></span></h2>
+          <span class="muted small" id="methodBadge"></span>
+        </div>
+        <div class="grid grid-4" id="statTiles" style="margin-top:14px"></div>
+        <div id="transBox" style="margin-top:14px"></div>
+        <p class="muted small" id="dispLine" style="margin:10px 0 0"></p>
+      </div>
+
+      <div class="card">
+        <div class="row between">
+          <h2 style="margin:0">高亮画布（B 时刻）</h2>
+          <div class="row gap-6" id="layerToggles">
+            <label class="check"><input type="checkbox" data-kind="appeared" checked> 新增</label>
+            <label class="check"><input type="checkbox" data-kind="disappeared" checked> 消失</label>
+            <label class="check"><input type="checkbox" data-kind="state_changed" checked> 状态转变</label>
+            <label class="check"><input type="checkbox" data-kind="moved" checked> 位移</label>
+            <label class="check"><input type="checkbox" id="showArrows" checked> 位移箭头</label>
+          </div>
+        </div>
+        <div class="canvas-wrap" style="margin-top:12px"><canvas id="canvas"></canvas></div>
+        <div class="legend" id="legend"></div>
+      </div>
+
+      <div class="card">
+        <div class="row between">
+          <h2 style="margin:0">差异明细</h2>
+          <div class="row gap-6">
+            <input id="searchInput" placeholder="按 id 检索…" style="width:150px">
+            <select id="typeFilter" style="width:120px"><option value="">全部类型</option></select>
+          </div>
+        </div>
+        <div class="row gap-6" id="filterChips" style="margin:12px 0"></div>
+        <div style="overflow-x:auto"><table id="dtable"></table></div>
+        <div class="row between" style="margin-top:12px">
+          <span class="muted small" id="pageInfo"></span>
+          <div class="row gap-6">
+            <button class="btn small" id="prevBtn">上一页</button>
+            <button class="btn small" id="nextBtn">下一页</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notice" id="notice" style="display:none"></div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/render.js"></script>
+  <script src="/js/diffview.js"></script>
+</body>
+</html>

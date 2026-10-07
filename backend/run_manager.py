@@ -287,6 +287,55 @@ class RunManager:
     def get_individuals(self, run_id: str, step: Optional[int] = None) -> List[Dict[str, Any]]:
         return self.get_snapshot(run_id, step).get("individuals", [])
 
+    def get_diff(self, a_run: str, a_step: Optional[int],
+                 b_run: str, b_step: Optional[int], *,
+                 method: str = "auto", move_threshold: Optional[float] = None,
+                 match_radius: Optional[float] = None) -> Dict[str, Any]:
+        """Compare individuals of two snapshots (one run's two steps or two runs).
+
+        Snapshots may be older shards written before the ``wrap`` field existed;
+        :func:`diff.compute_diff` falls back to the engine geometry in that case.
+        """
+        from . import diff
+
+        meta_a = storage.load_run_meta(a_run)
+        meta_b = storage.load_run_meta(b_run)
+        if meta_a is None:
+            raise KeyError(f"run not found: {a_run}")
+        if meta_b is None:
+            raise KeyError(f"run not found: {b_run}")
+        if (meta_a.get("domain"), meta_a.get("model")) != \
+           (meta_b.get("domain"), meta_b.get("model")):
+            raise ValueError(
+                f"无法对比：{meta_a.get('domain')}/{meta_a.get('model')} 与 "
+                f"{meta_b.get('domain')}/{meta_b.get('model')} 是不同模型")
+
+        snap_a = self.get_snapshot(a_run, a_step)
+        snap_b = self.get_snapshot(b_run, b_step)
+        step_a = int(snap_a.get("step", a_step or 0))
+        step_b = int(snap_b.get("step", b_step or 0))
+        snap_a = dict(snap_a)
+        snap_b = dict(snap_b)
+        snap_a["_run_id"] = a_run
+        snap_b["_run_id"] = b_run
+
+        if move_threshold is None:
+            # ≥1 cell for lattice CAs, ≥1 world unit for mobile agents.
+            move_threshold = 0.5 if meta_a.get("model") == "ca" else 1.0
+
+        result = diff.compute_diff(
+            snap_a, snap_b, meta_a["domain"], meta_a["model"],
+            method=method, move_threshold=float(move_threshold),
+            match_radius=match_radius)
+        result["a"] = {"run_id": a_run, "step": step_a,
+                       "name": meta_a.get("name", "")}
+        result["b"] = {"run_id": b_run, "step": step_b,
+                       "name": meta_b.get("name", "")}
+        result["domain"] = meta_a["domain"]
+        result["model"] = meta_a["model"]
+        result["palette_b"] = snap_b.get("palette", {})
+        return result
+
 
 # Global singleton used by the Flask app.
 manager = RunManager()
